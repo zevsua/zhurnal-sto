@@ -145,6 +145,26 @@
   .lbtn small{color:var(--muted);font-weight:400}
   .wide{width:100%;margin-top:10px;background:var(--panel);border:1px dashed var(--line);border-radius:11px;padding:13px;color:var(--muted)}
 
+  /* photos */
+  .ph-row{display:flex;gap:6px;margin-top:8px}
+  .ph-row button{padding:0;border-radius:9px;overflow:hidden;flex:0 0 auto;width:60px;height:60px;background:var(--panel2);position:relative}
+  .ph-row img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph-row .more{position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .ph-btns{display:flex;gap:8px}
+  .ph-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .ph-grid:empty{display:none}
+  .ph{position:relative;border-radius:10px;overflow:hidden;background:var(--panel2);aspect-ratio:1}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .x{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:14px}
+  .viewer{position:fixed;inset:0;z-index:30;background:#000;display:none;align-items:center;justify-content:center;touch-action:pan-y}
+  .viewer.open{display:flex}
+  .viewer img{max-width:100%;max-height:100%;object-fit:contain}
+  .vbtn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(40,40,40,.7);color:#fff;font-size:24px}
+  .vclose{top:14px;right:14px;font-size:20px}
+  .vprev{left:10px;top:50%;margin-top:-24px}
+  .vnext{right:10px;top:50%;margin-top:-24px}
+  .vcount{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#ccc;font-size:14px}
+
   .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);opacity:0;
     background:#f3f5f8;color:#14171c;border-radius:12px;padding:11px 14px;z-index:20;display:flex;gap:14px;
     align-items:center;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:.2s;pointer-events:none;width:max-content;max-width:92vw}
@@ -196,6 +216,15 @@
     <div class="hint" id="presetHint" hidden>Натисніть на заготовку, щоб прибрати її зі списку.</div>
     <textarea class="in" id="fNote" placeholder="Інше / примітка (необов'язково)" style="margin-top:8px"></textarea>
 
+    <div id="photoBox" hidden>
+      <span class="lbl">Фото (за потреби)</span>
+      <div class="ph-btns">
+        <button type="button" class="btn" id="phCam">📷 Камера</button>
+        <button type="button" class="btn" id="phGal">🖼 Галерея</button>
+      </div>
+      <div class="ph-grid" id="phGrid"></div>
+    </div>
+
     <div class="two">
       <div>
         <label for="fPrice">Ціна, ₴ (необов'язково)</label>
@@ -236,7 +265,7 @@
   <h2>Резервна копія</h2>
   <div class="hint" id="bkInfo"></div>
   <button type="button" class="bkbtn" id="bkSave">💾 Зберегти копію в файл
-    <small>Можна зберегти в «Завантаження», на Google Диск або флешку</small></button>
+    <small>Можна зберегти в «Завантаження», на Google Диск або флешку. У копію входять записи, без фото.</small></button>
   <button type="button" class="bkbtn" id="bkLoad">📂 Відновити з копії
     <small>Записи з файлу додаються до наявних, нічого не видаляється</small></button>
   <div class="sheet-acts"><button type="button" class="secondary" id="bkClose" style="flex:1">Закрити</button></div>
@@ -254,6 +283,14 @@
   <div class="pk-body" id="pkBody"></div>
 </div>
 
+<div class="viewer" id="viewer">
+  <img id="vImg" alt="">
+  <button type="button" class="vbtn vprev" id="vPrev" aria-label="Попереднє">‹</button>
+  <button type="button" class="vbtn vnext" id="vNext" aria-label="Наступне">›</button>
+  <button type="button" class="vbtn vclose" id="vClose" aria-label="Закрити">✕</button>
+  <div class="vcount" id="vCount"></div>
+</div>
+
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo" style="display:none">Скасувати</button></div>
 
 <script>
@@ -262,6 +299,9 @@
   const $ = id => document.getElementById(id);
   const LS_KEY = "sto-jobs-v1", LS_PRESETS = "sto-presets-v1", LS_LASTBK = "sto-lastbackup";
   const ANDROID = !!(window.Android && typeof window.Android.saveBackup === "function");
+  const PHOTOS = ANDROID && typeof window.Android.addPhoto === "function";
+  const photoUrl = (id, thumb) => "https://photo.sto.local/" + encodeURIComponent(id) + (thumb ? "_t" : "") + ".jpg";
+  const delPhoto = id => { try { window.Android.deletePhoto(id); } catch(e){} };
   const DEFAULT_WORKS = ["Заправка фреоном", "Мийка радіатора печки", "Діагностика", "Мийка сажового фільтра"];
 
   // Марки (у порядку популярності) і моделі
@@ -317,6 +357,7 @@
   let formCar = null;            // {make, model}
   let formWorks = [];            // selected work presets
   let presetEdit = false;
+  let formId = null, formPhotos = [], origPhotos = [];
 
   // ---------- helpers ----------
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -409,7 +450,7 @@
     jobs = loadLocal(LS_KEY, []);
     const p = loadLocal(LS_PRESETS, null);
     if (Array.isArray(p)) presets = p;
-    if (ANDROID){ $("menuBtn").hidden = false; backupNote(); }
+    if (ANDROID){ $("menuBtn").hidden = false; backupNote(); if (PHOTOS) setTimeout(window.onPhotosAdded, 0); }
     else setNotes('Дані зберігаються тільки в цьому браузері. Відкрийте журнал через посилання claude.ai, щоб записи зберігалися надійно.');
     render();
   }
@@ -473,8 +514,74 @@
     closeBk(); backupNote(); render();
     toast(`Відновлено: нових ${added}, оновлено ${updated}`);
   };
+  // ---------- фото (тільки в Android-програмі) ----------
+  // Програма зберігає фото у своїй пам'яті й повідомляє, які нові фото з'явилися.
+  window.onPhotosAdded = () => {
+    if (!PHOTOS) return;
+    let arr = [];
+    try { arr = JSON.parse(window.Android.takePendingPhotos() || "[]"); } catch(e){}
+    if (!arr.length) return;
+    let changed = false, added = 0;
+    for (const p of arr){
+      if (!p || !p.photoId) continue;
+      if ($("sheet").classList.contains("open") && p.jobId === formId){
+        if (!formPhotos.includes(p.photoId)) { formPhotos.push(p.photoId); added++; }
+      } else {
+        const j = jobs.find(x => x.id === p.jobId);
+        if (j){ j.photos = (j.photos || []).concat(p.photoId); changed = true; added++; }
+        else delPhoto(p.photoId);           // запис уже не існує
+      }
+    }
+    if (changed){ saveLocal(); render(); }
+    renderFormPhotos();
+    if (added) toast(added === 1 ? "Фото додано" : `Додано фото: ${added}`);
+  };
+  window.onPhotoError = msg => toast(msg || "Не вдалося додати фото");
+
+  function renderFormPhotos(){
+    if (!PHOTOS) return;
+    $("phGrid").innerHTML = formPhotos.map((id, i) =>
+      `<div class="ph"><img src="${photoUrl(id, true)}" data-fv="${i}" alt="" onerror="this.style.opacity=.15">` +
+      `<button type="button" class="x" data-delph="${esc(id)}" aria-label="Видалити фото">✕</button></div>`).join("");
+  }
+  $("phCam").addEventListener("click", () => { try { window.Android.addPhoto(formId, "camera"); } catch(e){ toast("Камера недоступна"); } });
+  $("phGal").addEventListener("click", () => { try { window.Android.addPhoto(formId, "gallery"); } catch(e){ toast("Галерея недоступна"); } });
+  $("phGrid").addEventListener("click", e => {
+    const x = e.target.closest("[data-delph]");
+    if (x){
+      const id = x.dataset.delph;
+      formPhotos = formPhotos.filter(p => p !== id);
+      if (!origPhotos.includes(id)) delPhoto(id);   // щойно додане — видаляємо одразу
+      renderFormPhotos(); return;
+    }
+    const im = e.target.closest("[data-fv]");
+    if (im) openViewer(formPhotos, +im.dataset.fv);
+  });
+
+  // перегляд на весь екран
+  let vList = [], vIdx = 0;
+  function openViewer(list, i){ vList = list.slice(); vIdx = i; showV(); $("viewer").classList.add("open"); }
+  function closeViewer(){ $("viewer").classList.remove("open"); $("vImg").src = ""; }
+  function showV(){
+    $("vImg").src = photoUrl(vList[vIdx], false);
+    $("vCount").textContent = vList.length > 1 ? `${vIdx+1} / ${vList.length}` : "";
+    $("vPrev").hidden = $("vNext").hidden = vList.length < 2;
+  }
+  const stepV = d => { if (vList.length < 2) return; vIdx = (vIdx + d + vList.length) % vList.length; showV(); };
+  $("vPrev").addEventListener("click", () => stepV(-1));
+  $("vNext").addEventListener("click", () => stepV(1));
+  $("vClose").addEventListener("click", closeViewer);
+  let tx = null;
+  $("viewer").addEventListener("touchstart", e => { tx = e.touches[0].clientX; }, {passive:true});
+  $("viewer").addEventListener("touchend", e => {
+    if (tx == null) return;
+    const dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (Math.abs(dx) > 50) stepV(dx < 0 ? 1 : -1);
+  });
+
   // системна кнопка «Назад» на Android
   window.onAndroidBack = () => {
+    if ($("viewer").classList.contains("open")) { closeViewer(); return true; }
     if ($("picker").classList.contains("open")) { closePicker(); return true; }
     if ($("bkSheet").classList.contains("open")) { closeBk(); return true; }
     if ($("sheet").classList.contains("open")) { closeSheet(); return true; }
@@ -586,11 +693,16 @@
     const acts = readOnly ? "" : `<div class="acts">${stBtn}${payBtn}<button class="btn edit" data-a="edit" data-id="${esc(j.id)}" aria-label="Редагувати">✎</button></div>`;
     const sub = [j.plate, j.client].filter(Boolean).map(esc).join(" · ");
     const works = jobWorks(j), note = jobNote(j);
+    const ph = PHOTOS && Array.isArray(j.photos) ? j.photos : [];
+    const phHtml = ph.length ? `<div class="ph-row">` + ph.slice(0, 4).map((id, i) =>
+      `<button type="button" data-view="${esc(j.id)}" data-i="${i}"><img src="${photoUrl(id, true)}" alt="" loading="lazy" onerror="this.style.opacity=.15">` +
+      (i === 3 && ph.length > 4 ? `<span class="more">+${ph.length - 4}</span>` : "") + `</button>`).join("") + `</div>` : "";
     return `<div class="card ${esc(j.status)}">
       <div class="row1"><div class="car">${esc(j.car)}</div>${price}</div>
       ${works.length ? `<div class="wtags">${works.map(w => `<span class="wtag">${esc(w)}</span>`).join("")}</div>` : ""}
       ${note ? `<div class="workd">${esc(note)}</div>` : ""}
       ${sub ? `<div class="client">${sub}</div>` : ""}
+      ${phHtml}
       <div class="times">${times.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
       ${acts}
     </div>`;
@@ -604,6 +716,12 @@
   $("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(); });
 
   $("list").addEventListener("click", e => {
+    const v = e.target.closest("[data-view]");
+    if (v){
+      const jj = jobs.find(x => x.id === v.dataset.view);
+      if (jj && jj.photos && jj.photos.length) openViewer(jj.photos, +v.dataset.i);
+      return;
+    }
     const b = e.target.closest("[data-a]"); if (!b || readOnly) return;
     const j = jobs.find(x => x.id === b.dataset.id); if (!j) return;
     const a = b.dataset.a, now = Date.now();
@@ -701,6 +819,11 @@
     formStatus = j ? j.status : "work";
     formPaid = j ? !!j.paid : false;
     presetEdit = false; $("addPresetRow").hidden = true;
+    formId = j ? j.id : uid();
+    formPhotos = j && Array.isArray(j.photos) ? j.photos.slice() : [];
+    origPhotos = formPhotos.slice();
+    $("photoBox").hidden = !PHOTOS;
+    renderFormPhotos();
     setSeg(); setPaid();
     $("editOnly").style.display = j ? "" : "none";
     $("del").style.display = j ? "" : "none";
@@ -718,14 +841,19 @@
     $("sheet").scrollTop = 0;
     if (!j) setTimeout(() => openPicker(), 120);   // нове авто — одразу вибір марки
   }
-  function closeSheet(){
+  function closeSheet(saved){
+    if (saved !== true && PHOTOS){
+      // скасували — прибираємо фото, зняті в цьому вікні
+      for (const p of formPhotos) if (!origPhotos.includes(p)) delPhoto(p);
+    }
+    formPhotos = []; origPhotos = [];
     $("sheet").classList.remove("open");
     $("shade").style.display = "none";
     editingId = null;
     document.activeElement && document.activeElement.blur();
   }
   $("fab").addEventListener("click", () => openSheet(null));
-  $("cancel").addEventListener("click", closeSheet);
+  $("cancel").addEventListener("click", () => closeSheet());
   $("shade").addEventListener("click", () => { closeBk(); closeSheet(); });
 
   $("form").addEventListener("submit", e => {
@@ -741,9 +869,13 @@
       plate: $("fPlate").value.trim().toUpperCase(),
       client: $("fClient").value.trim()
     };
+    if (PHOTOS){
+      data.photos = formPhotos.slice();
+      for (const p of origPhotos) if (!formPhotos.includes(p)) delPhoto(p);   // прибрані у формі
+    }
     if (editingId){
       const j = jobs.find(x => x.id === editingId);
-      if (!j){ closeSheet(); return; }
+      if (!j){ closeSheet(true); return; }
       const patch = Object.assign({}, data, {status: formStatus, paid: formPaid});
       if (formStatus !== "work" && !j.doneAt) patch.doneAt = now;
       if (formStatus === "work") { patch.doneAt = null; patch.issuedAt = null; }
@@ -754,7 +886,7 @@
       patchJob(j.id, patch);
       toast("Збережено");
     } else {
-      const job = Object.assign({id: uid()}, data, {
+      const job = Object.assign({id: formId || uid()}, data, {
         status:"work", createdAt: now, doneAt:null, issuedAt:null,
         paid: formPaid, paidAt: formPaid ? now : null
       });
@@ -762,7 +894,7 @@
       if (filter !== "all" && filter !== "work" && !(filter === "unpaid" && !formPaid)) { filter = "all"; render(); }
       toast(`Додано: ${job.car}`);
     }
-    closeSheet();
+    closeSheet(true);
   });
 
   $("del").addEventListener("click", () => {
@@ -778,7 +910,10 @@
     if (!j) return;
     const copy = Object.assign({}, j);
     removeJob(j.id);
-    toast(`Видалено: ${j.car}`, () => putJob(copy));
+    // файли фото видаляємо, лише коли минув час на «Скасувати»
+    const phs = PHOTOS && Array.isArray(j.photos) ? j.photos.slice() : [];
+    const t = phs.length ? setTimeout(() => phs.forEach(delPhoto), 6000) : null;
+    toast(`Видалено: ${j.car}`, () => { if (t) clearTimeout(t); putJob(copy); });
   });
 
   // ---------- car picker ----------
