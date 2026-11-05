@@ -1,0 +1,38 @@
+name: Зібрати APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Збірка
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          mv app/build/outputs/apk/release/app-release.apk Zhurnal-STO.apk
+
+      - name: Файл APK у вкладці Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zhurnal-STO-apk
+          path: Zhurnal-STO.apk
+
+      - name: Реліз з прямим посиланням на APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Журнал СТО v${{ github.run_number }}
+          files: Zhurnal-STO.apk

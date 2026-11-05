@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#14171c">
+<title>Журнал робіт СТО</title>
+<style>
+  :root{
+    --bg:#14171c; --panel:#1d2128; --panel2:#262b34; --line:#323844;
+    --text:#eef1f5; --muted:#9aa3b2; --accent:#ffb020; --accent-ink:#1b1400;
+    --work:#4da3ff; --done:#3ccf7a; --issued:#9aa3b2; --unpaid:#ff6b5b; --paid:#3ccf7a;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  button,input,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;border:0;background:none}
+  [hidden]{display:none!important}
+  .wrap{max-width:640px;margin:0 auto;padding:12px 12px 110px}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 2px 12px}
+  header h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.2px}
+  .mode{font-size:12px;color:var(--muted)}
+  .menu{width:40px;height:40px;border-radius:11px;background:var(--panel);font-size:20px;font-weight:700}
+  .bkbtn{display:block;width:100%;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin-top:8px;font-weight:600}
+  .bkbtn small{display:block;color:var(--muted);font-weight:400;margin-top:3px;font-size:13px}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .stat{background:var(--panel);border-radius:var(--r);padding:10px 12px}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .stat span{font-size:12px;color:var(--muted)}
+  .stat.money b{color:var(--unpaid)}
+  .stat.month b{color:var(--paid)}
+
+  .search{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:11px 14px;margin-bottom:10px;outline:none}
+  .search:focus{border-color:var(--accent)}
+
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:8px 13px;font-size:14px;color:var(--muted);white-space:nowrap}
+  .tab.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+  .tab i{font-style:normal;opacity:.7;margin-left:4px}
+
+  .list{display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--panel);border-radius:var(--r);padding:12px 12px 10px;border-left:4px solid var(--work)}
+  .card.done{border-left-color:var(--done)}
+  .card.issued{border-left-color:var(--issued);opacity:.92}
+  .row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .car{font-weight:700;font-size:17px;word-break:break-word}
+  .price{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .price.none{color:var(--muted);font-weight:400;font-size:14px}
+  .wtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .wtag{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:13.5px;color:#d7dce4}
+  .workd{color:#cfd5de;margin-top:5px;font-size:14.5px;word-break:break-word;white-space:pre-wrap}
+  .client{color:var(--muted);font-size:13px;margin-top:4px}
+  .times{color:var(--muted);font-size:12.5px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 12px}
+  .acts{display:flex;gap:8px;margin-top:10px}
+  .btn{flex:1;min-height:42px;border-radius:11px;padding:8px 10px;font-weight:600;font-size:14.5px;
+    background:var(--panel2);border:1px solid var(--line)}
+  .btn.go-done{background:rgba(60,207,122,.14);border-color:rgba(60,207,122,.45);color:var(--done)}
+  .btn.go-issue{background:rgba(255,176,32,.13);border-color:rgba(255,176,32,.45);color:var(--accent)}
+  .btn.status-flat{color:var(--muted);font-weight:500}
+  .btn.unpaid{background:rgba(255,107,91,.12);border-color:rgba(255,107,91,.45);color:var(--unpaid)}
+  .btn.paid{background:rgba(60,207,122,.10);border-color:rgba(60,207,122,.35);color:var(--paid)}
+  .btn.edit{flex:0 0 46px;font-size:18px;color:var(--muted)}
+
+  .empty{text-align:center;color:var(--muted);padding:40px 10px}
+  .empty b{display:block;color:var(--text);font-size:17px;margin-bottom:6px}
+  .note{background:var(--panel);border:1px dashed var(--line);color:var(--muted);font-size:13px;
+    border-radius:12px;padding:10px 12px;margin-bottom:10px}
+
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:5;
+    background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:17px;
+    border-radius:999px;padding:15px 28px;box-shadow:0 8px 24px rgba(0,0,0,.45);white-space:nowrap}
+  .fab:active{transform:translateX(-50%) scale(.97)}
+
+  .shade{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10;display:none}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;background:var(--panel);
+    border-radius:18px 18px 0 0;padding:16px 14px 18px;max-height:92vh;overflow:auto;
+    transform:translateY(105%);transition:transform .22s ease}
+  .sheet.open{transform:none}
+  .sheet-in{max-width:640px;margin:0 auto}
+  .sheet h2{margin:0 0 6px;font-size:18px}
+  label,.lbl{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  .in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px;outline:none}
+  .in:focus{border-color:var(--accent)}
+  textarea.in{min-height:54px;resize:vertical}
+
+  .pick{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;
+    background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:13px 12px;font-size:17px;font-weight:700}
+  .pick .ph{color:var(--muted);font-weight:400;font-size:16px}
+  .pick .arr{color:var(--accent);font-size:14px;font-weight:600;white-space:nowrap}
+  .pick.err{border-color:var(--unpaid)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:9px 13px;font-size:14.5px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+  .chip.on::before{content:"✓ "}
+  .chip.ghost{background:transparent;border-style:dashed;color:var(--muted)}
+  .chip.del{border-color:rgba(255,107,91,.5);color:var(--unpaid)}
+  .chip.del::after{content:"  ✕"}
+  .addrow{display:flex;gap:8px;margin-top:8px}
+  .okbtn{background:var(--accent);color:var(--accent-ink);font-weight:700;border-radius:11px;padding:0 16px;white-space:nowrap}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .seg button{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 4px;font-size:14px}
+  .seg button.on{background:var(--text);color:var(--bg);font-weight:700}
+  .paidrow{display:flex;align-items:center;justify-content:space-between;background:var(--bg);
+    border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:12px}
+  .sw{width:50px;height:30px;border-radius:999px;background:var(--line);position:relative;transition:.15s}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.15s}
+  .sw.on{background:var(--paid)}
+  .sw.on::after{left:23px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sheet-acts{display:flex;gap:8px;margin-top:16px}
+  .primary{flex:1;background:var(--accent);color:var(--accent-ink);font-weight:800;border-radius:12px;padding:14px;font-size:16px}
+  .secondary{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .danger{margin-top:14px;width:100%;color:var(--unpaid);border:1px solid rgba(255,107,91,.35);border-radius:12px;padding:12px;background:transparent}
+  .danger.confirm{background:var(--unpaid);color:#fff;font-weight:700}
+  .meta{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+
+  /* car picker */
+  .picker{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column;
+    transform:translateX(100%);transition:transform .2s ease}
+  .picker.open{transform:none}
+  .pk-top{max-width:640px;width:100%;margin:0 auto;padding:12px 12px 8px}
+  .pk-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .pk-head b{flex:1;font-size:18px}
+  .pk-head button{width:42px;height:42px;border-radius:11px;background:var(--panel);font-size:18px}
+  .pk-body{flex:1;overflow:auto;max-width:640px;width:100%;margin:0 auto;padding:0 12px 30px}
+  .pk-sec{font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 2px 8px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .gbtn{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 6px;font-size:15px;
+    font-weight:600;text-align:center;word-break:break-word;min-height:50px}
+  .gbtn:active{background:var(--panel2)}
+  .gbtn.sel{border-color:var(--accent);color:var(--accent)}
+  .lbtn{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:12px;margin-bottom:6px;font-weight:600}
+  .lbtn small{color:var(--muted);font-weight:400}
+  .wide{width:100%;margin-top:10px;background:var(--panel);border:1px dashed var(--line);border-radius:11px;padding:13px;color:var(--muted)}
+
+  .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:#f3f5f8;color:#14171c;border-radius:12px;padding:11px 14px;z-index:20;display:flex;gap:14px;
+    align-items:center;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:.2s;pointer-events:none;width:max-content;max-width:92vw}
+  .toast span{flex:1}
+  .toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .toast button{color:#b56d00;font-weight:800}
+  .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+    animation:sp 0.8s linear infinite;margin:40px auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🔧 Журнал робіт</h1>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="mode" id="mode"></div>
+      <button class="menu" id="menuBtn" hidden aria-label="Меню">⋮</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b id="sWork">0</b><span>в роботі</span></div>
+    <div class="stat money"><b id="sDebt">0 ₴</b><span>не оплачено</span></div>
+    <div class="stat month"><b id="sMonth">0 ₴</b><span>оплачено за місяць</span></div>
+  </div>
+
+  <div id="notes"></div>
+  <input class="search" id="q" type="search" placeholder="Пошук: авто, номер, робота, клієнт…" autocomplete="off">
+  <div class="tabs" id="tabs"></div>
+  <div class="list" id="list"><div class="spin"></div><div class="empty">Завантаження…</div></div>
+</div>
+
+<button class="fab" id="fab">＋ Нове авто</button>
+
+<div class="shade" id="shade"></div>
+<div class="sheet" id="sheet"><div class="sheet-in">
+  <h2 id="shTitle">Нове авто</h2>
+  <form id="form" autocomplete="off">
+    <span class="lbl">Авто *</span>
+    <button type="button" class="pick" id="pickCar"><span id="carText" class="ph">Вибрати марку і модель</span><span class="arr" id="carArr">Вибрати ›</span></button>
+
+    <span class="lbl">Роботи (можна кілька)</span>
+    <div class="chips" id="workChips"></div>
+    <div class="addrow" id="addPresetRow" hidden>
+      <input class="in" id="newPreset" placeholder="Нова заготовка, напр. заміна АКБ" enterkeyhint="done">
+      <button type="button" class="okbtn" id="addPresetOk">Додати</button>
+    </div>
+    <div class="hint" id="presetHint" hidden>Натисніть на заготовку, щоб прибрати її зі списку.</div>
+    <textarea class="in" id="fNote" placeholder="Інше / примітка (необов'язково)" style="margin-top:8px"></textarea>
+
+    <div class="two">
+      <div>
+        <label for="fPrice">Ціна, ₴ (необов'язково)</label>
+        <input class="in" id="fPrice" type="text" inputmode="decimal" placeholder="—">
+      </div>
+      <div>
+        <label for="fPlate">Держномер</label>
+        <input class="in" id="fPlate" placeholder="BO 1234 AB" autocapitalize="characters">
+      </div>
+    </div>
+
+    <label for="fClient">Клієнт / телефон</label>
+    <input class="in" id="fClient" placeholder="необов'язково">
+
+    <div id="editOnly" style="display:none">
+      <span class="lbl">Стан</span>
+      <div class="seg" id="seg">
+        <button type="button" data-s="work">В роботі</button>
+        <button type="button" data-s="done">Зроблено</button>
+        <button type="button" data-s="issued">Видано</button>
+      </div>
+    </div>
+    <div class="paidrow">
+      <span>Гроші отримано</span>
+      <button type="button" class="sw" id="fPaid" aria-label="Оплачено"></button>
+    </div>
+
+    <div class="sheet-acts">
+      <button type="button" class="secondary" id="cancel">Скасувати</button>
+      <button type="submit" class="primary" id="save">Додати</button>
+    </div>
+    <div class="meta" id="meta"></div>
+    <button type="button" class="danger" id="del" style="display:none">Видалити запис</button>
+  </form>
+</div></div>
+
+<div class="sheet" id="bkSheet"><div class="sheet-in">
+  <h2>Резервна копія</h2>
+  <div class="hint" id="bkInfo"></div>
+  <button type="button" class="bkbtn" id="bkSave">💾 Зберегти копію в файл
+    <small>Можна зберегти в «Завантаження», на Google Диск або флешку</small></button>
+  <button type="button" class="bkbtn" id="bkLoad">📂 Відновити з копії
+    <small>Записи з файлу додаються до наявних, нічого не видаляється</small></button>
+  <div class="sheet-acts"><button type="button" class="secondary" id="bkClose" style="flex:1">Закрити</button></div>
+</div></div>
+
+<div class="picker" id="picker">
+  <div class="pk-top">
+    <div class="pk-head">
+      <button type="button" id="pkBack" aria-label="Назад">←</button>
+      <b id="pkTitle">Марка</b>
+      <button type="button" id="pkClose" aria-label="Закрити">✕</button>
+    </div>
+    <input class="in" id="pkSearch" type="search" placeholder="Пошук марки або моделі" autocomplete="off">
+  </div>
+  <div class="pk-body" id="pkBody"></div>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo" style="display:none">Скасувати</button></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const LS_KEY = "sto-jobs-v1", LS_PRESETS = "sto-presets-v1", LS_LASTBK = "sto-lastbackup";
+  const ANDROID = !!(window.Android && typeof window.Android.saveBackup === "function");
+  const DEFAULT_WORKS = ["Заправка фреоном", "Мийка радіатора печки", "Діагностика", "Мийка сажового фільтра"];
+
+  // Марки (у порядку популярності) і моделі
+  const CARS = [
+    ["Volkswagen", "Passat, Golf, Jetta, Polo, Tiguan, Touareg, Touran, Caddy, Transporter, Multivan, Sharan, Arteon, Atlas, Crafter, ID.3, ID.4"],
+    ["Toyota", "Camry, Corolla, RAV4, Land Cruiser Prado, Land Cruiser, Auris, Avensis, Yaris, C-HR, Highlander, Prius, Venza, Hilux, Sequoia, Tundra"],
+    ["Skoda", "Octavia, Superb, Fabia, Rapid, Kodiaq, Karoq, Yeti, Kamiq, Scala, Roomster"],
+    ["Renault", "Megane, Logan, Sandero, Duster, Kangoo, Trafic, Master, Fluence, Scenic, Laguna, Clio, Captur, Koleos, Arkana, Zoe"],
+    ["Hyundai", "Tucson, Santa Fe, Elantra, Sonata, Accent, i30, i20, i10, Creta, Kona, Ioniq, ix35, Getz, Matrix"],
+    ["Kia", "Sportage, Ceed, Rio, Sorento, Optima, K5, Niro, Soul, Picanto, Cerato, Carnival, Stinger, EV6"],
+    ["Ford", "Focus, Fiesta, Mondeo, Kuga, Fusion, Escape, Explorer, Edge, Transit, Transit Connect, Transit Custom, C-Max, S-Max, Galaxy, Ranger, Mustang"],
+    ["Nissan", "Qashqai, X-Trail, Juke, Leaf, Note, Micra, Rogue, Murano, Pathfinder, Navara, Almera, Primera, Teana, Sentra, Tiida"],
+    ["Mercedes-Benz", "A-Class, B-Class, C-Class, E-Class, S-Class, CLA, CLS, GLA, GLC, GLE, GLK, ML, GL/GLS, G-Class, Vito, Viano, V-Class, Sprinter"],
+    ["BMW", "1 серія, 3 серія, 5 серія, 7 серія, X1, X3, X4, X5, X6, X7, i3, iX"],
+    ["Audi", "A3, A4, A5, A6, A7, A8, Q3, Q5, Q7, Q8, A4 Allroad, A6 Allroad, e-tron"],
+    ["Opel", "Astra, Vectra, Insignia, Zafira, Corsa, Meriva, Vivaro, Movano, Combo, Mokka, Omega, Antara"],
+    ["Chevrolet", "Aveo, Lacetti, Cruze, Captiva, Lanos, Malibu, Epica, Spark, Volt, Bolt, Equinox, Trax, Tahoe"],
+    ["Daewoo", "Lanos, Sens, Matiz, Nexia, Nubira, Leganza, Gentra"],
+    ["Mitsubishi", "Outlander, Lancer, ASX, Pajero, Pajero Sport, Pajero Wagon, L200, Eclipse Cross, Colt, Grandis, Galant"],
+    ["Mazda", "Mazda 3, Mazda 6, Mazda 2, CX-3, CX-5, CX-7, CX-9, CX-30, CX-60, MX-5"],
+    ["Honda", "Civic, Accord, CR-V, HR-V, Jazz, Pilot, Insight"],
+    ["Peugeot", "206, 207, 208, 301, 307, 308, 407, 508, 2008, 3008, 5008, Partner, Expert, Boxer, Bipper"],
+    ["Citroen", "C1, C3, C4, C5, C4 Picasso, C-Elysee, Berlingo, Nemo, Jumpy, Jumper, C-Crosser"],
+    ["Lexus", "RX, NX, ES, IS, GS, GX, LX, UX, CT"],
+    ["Subaru", "Forester, Outback, Impreza, XV, Legacy, Tribeca"],
+    ["Volvo", "XC60, XC90, XC70, XC40, S60, S80, S40, V40, V60, V70, V90"],
+    ["Fiat", "Doblo, Punto, Grande Punto, Linea, Tipo, 500, Bravo, Ducato, Scudo, Fiorino, Qubo"],
+    ["Dacia", "Logan, Sandero, Duster, Lodgy, Dokker, Spring"],
+    ["Suzuki", "Grand Vitara, Vitara, SX4, Swift, Jimny, Splash"],
+    ["Land Rover", "Range Rover, Range Rover Sport, Range Rover Evoque, Range Rover Velar, Discovery, Discovery Sport, Freelander, Defender"],
+    ["Jeep", "Grand Cherokee, Cherokee, Compass, Renegade, Wrangler, Patriot"],
+    ["Seat", "Leon, Ibiza, Toledo, Altea, Ateca, Alhambra"],
+    ["Infiniti", "FX, QX50, QX56, QX60, QX70, QX80, Q50, G"],
+    ["Porsche", "Cayenne, Macan, Panamera, 911, Taycan"],
+    ["Tesla", "Model 3, Model S, Model X, Model Y"],
+    ["Geely", "Emgrand EC7, Emgrand X7, CK, MK, Coolray, Atlas, Tugella"],
+    ["Chery", "Tiggo, Tiggo 7, Amulet, Jaggi, QQ, Elara, Arrizo"],
+    ["BYD", "Song Plus, Han, Tang, Seal, Atto 3, Yuan, Qin, F3"],
+    ["ВАЗ / Lada", "2101–2107, 2108–21099, 2110–2112, Priora, Kalina, Granta, Vesta, Niva"],
+    ["ЗАЗ", "Sens, Lanos, Forza, Vida, Таврія, Славута"],
+    ["Iveco", "Daily"],
+  ].map(([make, models]) => ({make, models: models.split(/\s*,\s*/)}));
+
+  // ---------- state ----------
+  let jobs = [];
+  let presets = DEFAULT_WORKS.slice();
+  let mode = "loading";
+  let db = null, col = null;
+  let readOnly = false;
+  let filter = "all", query = "";
+  let editingId = null;
+  let formStatus = "work", formPaid = false;
+  let formCar = null;            // {make, model}
+  let formWorks = [];            // selected work presets
+  let presetEdit = false;
+
+  // ---------- helpers ----------
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const money = n => Math.round(n).toLocaleString("uk-UA").replace(/[\s,  ]/g," ") + " ₴";
+  const pad = n => String(n).padStart(2,"0");
+  const carName = c => c ? [c.make, c.model].filter(Boolean).join(" ") : "";
+  function when(ts){
+    if(!ts) return "";
+    const d = new Date(ts), now = new Date();
+    const t = pad(d.getHours())+":"+pad(d.getMinutes());
+    const day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (ts >= day0) return "сьогодні " + t;
+    if (ts >= day0 - 864e5) return "вчора " + t;
+    const ds = pad(d.getDate())+"."+pad(d.getMonth()+1);
+    return (d.getFullYear() === now.getFullYear() ? ds : ds+"."+String(d.getFullYear()).slice(2)) + " " + t;
+  }
+  const parsePrice = v => {
+    const s = String(v||"").replace(/\s/g,"").replace(",",".");
+    if(!s) return null;
+    const n = parseFloat(s);
+    return isFinite(n) && n >= 0 ? n : null;
+  };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  const jobWorks = j => Array.isArray(j.works) ? j.works : [];
+  const jobNote = j => j.note != null ? j.note : (Array.isArray(j.works) ? "" : (j.work || ""));
+
+  // ---------- storage ----------
+  const chains = {};
+  function serial(id, fn){
+    const p = (chains[id] || Promise.resolve()).catch(()=>{}).then(fn);
+    chains[id] = p; return p;
+  }
+  async function withRetry(fn){
+    try { return await fn(); }
+    catch(e){
+      if (e && e.code === "unavailable"){
+        await new Promise(r => setTimeout(r, 600 + Math.random()*800));
+        return fn();
+      }
+      throw e;
+    }
+  }
+  function writeErr(e){
+    const c = e && e.code;
+    if (c === "invalid_argument"){ readOnly = true; toast("Немає прав на зміну записів у цьому журналі"); render(); }
+    else if (c === "quota_exceeded"){ toast("Сховище заповнене — видаліть старі записи"); }
+    else toast("Не вдалося зберегти. Перевірте інтернет і спробуйте ще раз");
+  }
+  function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(jobs)); }catch(e){} }
+  function loadLocal(key, def){ try{ const v = JSON.parse(localStorage.getItem(key)); return v == null ? def : v; }catch(e){ return def; } }
+
+  function putJob(job){
+    if (mode === "db"){
+      const {id, ...body} = job;
+      return serial(id, () => withRetry(() => col.doc(id).set(body))).catch(writeErr);
+    }
+    const i = jobs.findIndex(j => j.id === job.id);
+    if (i >= 0) jobs[i] = job; else jobs.unshift(job);
+    jobs.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    saveLocal(); render(); return Promise.resolve();
+  }
+  function patchJob(id, patch){
+    if (mode === "db"){
+      return serial(id, () => withRetry(() => col.doc(id).update(patch))).catch(writeErr);
+    }
+    const j = jobs.find(x => x.id === id);
+    if (j) Object.assign(j, patch);
+    saveLocal(); render(); return Promise.resolve();
+  }
+  function removeJob(id){
+    if (mode === "db"){
+      return serial(id, () => withRetry(() => col.doc(id).delete())).catch(writeErr);
+    }
+    jobs = jobs.filter(j => j.id !== id);
+    saveLocal(); render(); return Promise.resolve();
+  }
+  function savePresets(list){
+    presets = list.slice();
+    renderWorkChips();
+    if (mode === "db"){
+      return serial("config/presets", () => withRetry(() => db.doc("config/presets").set({works: presets}))).catch(writeErr);
+    }
+    try{ localStorage.setItem(LS_PRESETS, JSON.stringify(presets)); }catch(e){}
+  }
+
+  // ---------- init ----------
+  let loadTimer = null, firstLoaded = false;
+  function startLocal(){
+    mode = "local";
+    jobs = loadLocal(LS_KEY, []);
+    const p = loadLocal(LS_PRESETS, null);
+    if (Array.isArray(p)) presets = p;
+    if (ANDROID){ $("menuBtn").hidden = false; backupNote(); }
+    else setNotes('Дані зберігаються тільки в цьому браузері. Відкрийте журнал через посилання claude.ai, щоб записи зберігалися надійно.');
+    render();
+  }
+
+  // ---------- Android: резервна копія ----------
+  function lastBackupText(){
+    const t = loadLocal(LS_LASTBK, 0);
+    return t ? when(t) : "ще не робили";
+  }
+  function backupNote(){
+    const t = loadLocal(LS_LASTBK, 0);
+    if (jobs.length >= 3 && Date.now() - t > 7*864e5)
+      setNotes(`Резервна копія: ${lastBackupText()}. Збережіть копію (⋮ угорі), щоб не втратити записи при заміні телефону.`);
+    else setNotes("");
+  }
+  function openBk(){
+    $("bkInfo").textContent = `Записів: ${jobs.length}. Остання копія: ${lastBackupText()}.`;
+    $("toast").classList.remove("show");
+    $("shade").style.display = "block";
+    $("bkSheet").classList.add("open");
+  }
+  function closeBk(){
+    $("bkSheet").classList.remove("open");
+    if (!$("sheet").classList.contains("open")) $("shade").style.display = "none";
+  }
+  $("menuBtn").addEventListener("click", openBk);
+  $("bkClose").addEventListener("click", closeBk);
+  $("bkSave").addEventListener("click", () => {
+    const d = new Date();
+    const name = `zhurnal-sto-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.json`;
+    const payload = JSON.stringify({app:"sto-journal", v:1, exportedAt: Date.now(), jobs, presets});
+    try { window.Android.saveBackup(payload, name); } catch(e){ toast("Не вдалося відкрити збереження файлу"); }
+  });
+  $("bkLoad").addEventListener("click", () => {
+    try { window.Android.openBackup(); } catch(e){ toast("Не вдалося відкрити вибір файлу"); }
+  });
+  window.onBackupSaved = ok => {
+    if (ok){
+      try{ localStorage.setItem(LS_LASTBK, String(Date.now())); }catch(e){}
+      closeBk(); backupNote(); toast("Резервну копію збережено");
+    } else toast("Копію не збережено");
+  };
+  window.onBackupLoaded = text => {
+    let d;
+    try { d = JSON.parse(text); } catch(e){ return toast("Це не файл резервної копії журналу"); }
+    if (!d || !Array.isArray(d.jobs)) return toast("Це не файл резервної копії журналу");
+    const byId = new Map(jobs.map(j => [j.id, j]));
+    let added = 0, updated = 0;
+    for (const j of d.jobs){
+      if (!j || typeof j.id !== "string" || !j.car) continue;
+      if (byId.has(j.id)) updated++; else added++;
+      byId.set(j.id, j);
+    }
+    jobs = [...byId.values()].sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    saveLocal();
+    if (Array.isArray(d.presets)){
+      const merged = presets.slice();
+      for (const p of d.presets) if (typeof p === "string" && !merged.includes(p)) merged.push(p);
+      savePresets(merged);
+    }
+    closeBk(); backupNote(); render();
+    toast(`Відновлено: нових ${added}, оновлено ${updated}`);
+  };
+  // системна кнопка «Назад» на Android
+  window.onAndroidBack = () => {
+    if ($("picker").classList.contains("open")) { closePicker(); return true; }
+    if ($("bkSheet").classList.contains("open")) { closeBk(); return true; }
+    if ($("sheet").classList.contains("open")) { closeSheet(); return true; }
+    return false;
+  };
+  function startDb(){
+    mode = "db";
+    col = db.collection("jobs");
+    loadTimer = setTimeout(() => {
+      setNotes(firstLoaded ? "Немає зв'язку — показані дані можуть бути застарілими."
+                           : "Не вдається з'єднатися зі сховищем. Перевірте інтернет — журнал оновиться сам.");
+    }, 10000);
+    col.orderBy("createdAt","desc").limit(1000).onSnapshot(snap => {
+      jobs = snap.docs.map(d => Object.assign({id:d.id}, d.data()));
+      firstLoaded = true;
+      if (!snap.metadata.fromCache){ clearTimeout(loadTimer); setNotes(""); }
+      render();
+    }, err => {
+      clearTimeout(loadTimer);
+      firstLoaded = true;
+      setNotes(err && err.code === "revoked" ? "Доступ до журналу закрито." : "З'єднання зі сховищем втрачено. Оновіть сторінку.");
+      render();
+    });
+    db.doc("config/presets").onSnapshot(snap => {
+      const w = snap.exists && snap.data().works;
+      if (Array.isArray(w)) { presets = w.slice(); renderWorkChips(); }
+    }, () => {});
+    render();
+  }
+  function setNotes(t){ $("notes").innerHTML = t ? '<div class="note">'+esc(t)+'</div>' : ""; }
+
+  (async () => {
+    try{
+      if (window.claude && typeof window.claude.use === "function"){
+        db = await window.claude.use("db");
+        try{
+          const user = await window.claude.use("user");
+          if (user && typeof user.can === "function"){
+            const w = await user.can("data.write");
+            if (w === false) readOnly = true;
+          }
+        }catch(e){}
+      }
+    }catch(e){ db = null; }
+    if (db) startDb(); else startLocal();
+  })();
+
+  // ---------- render list ----------
+  function counts(){
+    const c = {all:jobs.length, work:0, done:0, issued:0, unpaid:0};
+    for (const j of jobs){ c[j.status] = (c[j.status]||0)+1; if(!j.paid) c.unpaid++; }
+    return c;
+  }
+  function matches(j){
+    if (filter === "unpaid" && j.paid) return false;
+    if (["work","done","issued"].includes(filter) && j.status !== filter) return false;
+    if (query){
+      const hay = [j.car, j.plate, jobWorks(j).join(" "), jobNote(j), j.client].join(" ").toLowerCase();
+      return query.split(/\s+/).every(w => hay.includes(w));
+    }
+    return true;
+  }
+  function render(){
+    $("mode").textContent = ANDROID ? "" : mode === "local" ? "локально" : (readOnly ? "лише перегляд" : "");
+    $("fab").style.display = readOnly ? "none" : "";
+
+    const c = counts();
+    $("sWork").textContent = c.work;
+    let debt = 0, month = 0;
+    const now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    for (const j of jobs){
+      if (typeof j.price === "number"){
+        if (!j.paid) debt += j.price;
+        else if ((j.paidAt||0) >= m0) month += j.price;
+      }
+    }
+    $("sDebt").textContent = money(debt);
+    $("sMonth").textContent = money(month);
+
+    const tabs = [["all","Усі"],["work","В роботі"],["done","Готові"],["issued","Видані"],["unpaid","Не оплачені"]];
+    $("tabs").innerHTML = tabs.map(([k,t]) =>
+      `<button class="tab${filter===k?" on":""}" data-f="${k}">${t}<i>${c[k]||0}</i></button>`).join("");
+
+    if (mode === "loading" || (mode === "db" && !firstLoaded)){
+      $("list").innerHTML = '<div class="spin"></div><div class="empty">Завантаження…</div>'; return;
+    }
+    const list = jobs.filter(matches);
+    if (!list.length){
+      $("list").innerHTML = jobs.length
+        ? '<div class="empty">Нічого не знайдено</div>'
+        : '<div class="empty"><b>Поки порожньо</b>Натисніть «＋ Нове авто», щоб додати першу машину.</div>';
+      return;
+    }
+    $("list").innerHTML = list.map(cardHtml).join("");
+  }
+  function cardHtml(j){
+    const price = typeof j.price === "number" ? `<div class="price">${money(j.price)}</div>` : `<div class="price none">без ціни</div>`;
+    const times = [`прийнято ${when(j.createdAt)}`];
+    if (j.doneAt) times.push(`зроблено ${when(j.doneAt)}`);
+    if (j.issuedAt) times.push(`видано ${when(j.issuedAt)}`);
+    if (j.paid && j.paidAt) times.push(`оплачено ${when(j.paidAt)}`);
+    let stBtn;
+    if (j.status === "work") stBtn = `<button class="btn go-done" data-a="done" data-id="${esc(j.id)}">✓ Зроблено</button>`;
+    else if (j.status === "done") stBtn = `<button class="btn go-issue" data-a="issue" data-id="${esc(j.id)}">Видати авто</button>`;
+    else stBtn = `<button class="btn status-flat" data-a="edit" data-id="${esc(j.id)}">Видано</button>`;
+    const payBtn = j.paid
+      ? `<button class="btn paid" data-a="pay" data-id="${esc(j.id)}">₴ Оплачено</button>`
+      : `<button class="btn unpaid" data-a="pay" data-id="${esc(j.id)}">Не оплачено</button>`;
+    const acts = readOnly ? "" : `<div class="acts">${stBtn}${payBtn}<button class="btn edit" data-a="edit" data-id="${esc(j.id)}" aria-label="Редагувати">✎</button></div>`;
+    const sub = [j.plate, j.client].filter(Boolean).map(esc).join(" · ");
+    const works = jobWorks(j), note = jobNote(j);
+    return `<div class="card ${esc(j.status)}">
+      <div class="row1"><div class="car">${esc(j.car)}</div>${price}</div>
+      ${works.length ? `<div class="wtags">${works.map(w => `<span class="wtag">${esc(w)}</span>`).join("")}</div>` : ""}
+      ${note ? `<div class="workd">${esc(note)}</div>` : ""}
+      ${sub ? `<div class="client">${sub}</div>` : ""}
+      <div class="times">${times.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
+      ${acts}
+    </div>`;
+  }
+
+  // ---------- list actions ----------
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest("[data-f]"); if(!b) return;
+    filter = b.dataset.f; render();
+  });
+  $("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(); });
+
+  $("list").addEventListener("click", e => {
+    const b = e.target.closest("[data-a]"); if (!b || readOnly) return;
+    const j = jobs.find(x => x.id === b.dataset.id); if (!j) return;
+    const a = b.dataset.a, now = Date.now();
+    if (a === "edit") return openSheet(j);
+    if (a === "done"){
+      const prev = {status:j.status, doneAt:j.doneAt||null};
+      patchJob(j.id, {status:"done", doneAt:now});
+      toast(`${j.car}: зроблено`, () => patchJob(j.id, prev));
+    } else if (a === "issue"){
+      const prev = {status:j.status, issuedAt:j.issuedAt||null};
+      patchJob(j.id, {status:"issued", issuedAt:now});
+      toast(`${j.car}: видано замовнику`, () => patchJob(j.id, prev));
+    } else if (a === "pay"){
+      const prev = {paid:!!j.paid, paidAt:j.paidAt||null};
+      const next = !j.paid;
+      patchJob(j.id, {paid:next, paidAt: next ? now : null});
+      toast(next ? `${j.car}: гроші отримано` : `${j.car}: позначено як не оплачено`, () => patchJob(j.id, prev));
+    }
+  });
+
+  // ---------- form: car ----------
+  function renderCar(){
+    const n = carName(formCar);
+    $("carText").textContent = n || "Вибрати марку і модель";
+    $("carText").className = n ? "" : "ph";
+    $("carArr").textContent = n ? "Змінити ›" : "Вибрати ›";
+    $("pickCar").classList.remove("err");
+  }
+  $("pickCar").addEventListener("click", () => openPicker());
+
+  // ---------- form: works ----------
+  function renderWorkChips(){
+    if (!$("sheet").classList.contains("open")) return;
+    const extra = formWorks.filter(w => !presets.includes(w));
+    let html;
+    if (presetEdit){
+      html = presets.map(w => `<button type="button" class="chip del" data-delp="${esc(w)}">${esc(w)}</button>`).join("")
+           + `<button type="button" class="chip ghost" data-pa="done">Готово</button>`;
+    } else {
+      html = presets.concat(extra).map(w =>
+        `<button type="button" class="chip${formWorks.includes(w) ? " on" : ""}" data-w="${esc(w)}">${esc(w)}</button>`).join("")
+        + `<button type="button" class="chip ghost" data-pa="add">＋ заготовка</button>`
+        + (presets.length ? `<button type="button" class="chip ghost" data-pa="edit">✎</button>` : "");
+    }
+    $("workChips").innerHTML = html;
+    $("presetHint").hidden = !presetEdit;
+  }
+  $("workChips").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.w != null){
+      const w = b.dataset.w;
+      formWorks = formWorks.includes(w) ? formWorks.filter(x => x !== w) : formWorks.concat(w);
+      renderWorkChips();
+    } else if (b.dataset.delp != null){
+      const w = b.dataset.delp, before = presets.slice();
+      savePresets(presets.filter(x => x !== w));
+      toast(`Заготовку «${w}» прибрано`, () => savePresets(before));
+    } else if (b.dataset.pa === "add"){
+      $("addPresetRow").hidden = false; $("newPreset").value = ""; $("newPreset").focus();
+    } else if (b.dataset.pa === "edit"){
+      presetEdit = true; $("addPresetRow").hidden = true; renderWorkChips();
+    } else if (b.dataset.pa === "done"){
+      presetEdit = false; renderWorkChips();
+    }
+  });
+  function addPreset(){
+    const v = $("newPreset").value.trim().replace(/\s+/g," ").slice(0,60);
+    $("addPresetRow").hidden = true;
+    if (!v) return;
+    if (!presets.some(p => p.toLowerCase() === v.toLowerCase())) savePresets(presets.concat(v));
+    if (!formWorks.includes(v)) formWorks = formWorks.concat(v);
+    renderWorkChips();
+  }
+  $("addPresetOk").addEventListener("click", addPreset);
+  $("newPreset").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); addPreset(); }});
+
+  // ---------- form: status / paid ----------
+  function setSeg(){ for (const b of $("seg").children) b.classList.toggle("on", b.dataset.s === formStatus); }
+  function setPaid(){ $("fPaid").classList.toggle("on", formPaid); }
+  $("seg").addEventListener("click", e => { const b=e.target.closest("[data-s]"); if(b){ formStatus=b.dataset.s; setSeg(); }});
+  $("fPaid").addEventListener("click", () => { formPaid = !formPaid; setPaid(); });
+
+  // ---------- sheet ----------
+  let delArmed = false, delTimer = null;
+  function openSheet(j){
+    editingId = j ? j.id : null;
+    $("shTitle").textContent = j ? "Редагувати" : "Нове авто";
+    $("save").textContent = j ? "Зберегти" : "Додати";
+    formCar = j ? (j.make ? {make:j.make, model:j.model||""} : {make:j.car||"", model:""}) : null;
+    formWorks = j ? jobWorks(j).slice() : [];
+    $("fNote").value = j ? jobNote(j) : "";
+    $("fPrice").value = j && typeof j.price === "number" ? String(j.price) : "";
+    $("fPlate").value = j ? j.plate||"" : "";
+    $("fClient").value = j ? j.client||"" : "";
+    formStatus = j ? j.status : "work";
+    formPaid = j ? !!j.paid : false;
+    presetEdit = false; $("addPresetRow").hidden = true;
+    setSeg(); setPaid();
+    $("editOnly").style.display = j ? "" : "none";
+    $("del").style.display = j ? "" : "none";
+    $("del").classList.remove("confirm"); $("del").textContent = "Видалити запис"; delArmed = false;
+    $("meta").innerHTML = j ? [
+      `Прийнято: ${when(j.createdAt)}`,
+      j.doneAt ? `Зроблено: ${when(j.doneAt)}` : "",
+      j.issuedAt ? `Видано: ${when(j.issuedAt)}` : "",
+      j.paid && j.paidAt ? `Оплачено: ${when(j.paidAt)}` : ""
+    ].filter(Boolean).map(esc).join("<br>") : "";
+    $("toast").classList.remove("show");
+    $("shade").style.display = "block";
+    $("sheet").classList.add("open");
+    renderCar(); renderWorkChips();
+    $("sheet").scrollTop = 0;
+    if (!j) setTimeout(() => openPicker(), 120);   // нове авто — одразу вибір марки
+  }
+  function closeSheet(){
+    $("sheet").classList.remove("open");
+    $("shade").style.display = "none";
+    editingId = null;
+    document.activeElement && document.activeElement.blur();
+  }
+  $("fab").addEventListener("click", () => openSheet(null));
+  $("cancel").addEventListener("click", closeSheet);
+  $("shade").addEventListener("click", () => { closeBk(); closeSheet(); });
+
+  $("form").addEventListener("submit", e => {
+    e.preventDefault();
+    if (!formCar || !formCar.make){ $("pickCar").classList.add("err"); openPicker(); return; }
+    const now = Date.now();
+    const note = $("fNote").value.trim();
+    const data = {
+      make: formCar.make, model: formCar.model || "", car: carName(formCar),
+      works: formWorks.slice(), note,
+      work: formWorks.concat(note ? [note] : []).join(", "),
+      price: parsePrice($("fPrice").value),
+      plate: $("fPlate").value.trim().toUpperCase(),
+      client: $("fClient").value.trim()
+    };
+    if (editingId){
+      const j = jobs.find(x => x.id === editingId);
+      if (!j){ closeSheet(); return; }
+      const patch = Object.assign({}, data, {status: formStatus, paid: formPaid});
+      if (formStatus !== "work" && !j.doneAt) patch.doneAt = now;
+      if (formStatus === "work") { patch.doneAt = null; patch.issuedAt = null; }
+      if (formStatus === "done") patch.issuedAt = null;
+      if (formStatus === "issued" && !j.issuedAt) patch.issuedAt = now;
+      if (formPaid && !j.paid) patch.paidAt = now;
+      if (!formPaid) patch.paidAt = null;
+      patchJob(j.id, patch);
+      toast("Збережено");
+    } else {
+      const job = Object.assign({id: uid()}, data, {
+        status:"work", createdAt: now, doneAt:null, issuedAt:null,
+        paid: formPaid, paidAt: formPaid ? now : null
+      });
+      putJob(job);
+      if (filter !== "all" && filter !== "work" && !(filter === "unpaid" && !formPaid)) { filter = "all"; render(); }
+      toast(`Додано: ${job.car}`);
+    }
+    closeSheet();
+  });
+
+  $("del").addEventListener("click", () => {
+    if (!editingId) return;
+    if (!delArmed){
+      delArmed = true; $("del").classList.add("confirm"); $("del").textContent = "Натисніть ще раз, щоб видалити";
+      clearTimeout(delTimer);
+      delTimer = setTimeout(() => { delArmed=false; $("del").classList.remove("confirm"); $("del").textContent="Видалити запис"; }, 3500);
+      return;
+    }
+    const j = jobs.find(x => x.id === editingId);
+    closeSheet();
+    if (!j) return;
+    const copy = Object.assign({}, j);
+    removeJob(j.id);
+    toast(`Видалено: ${j.car}`, () => putJob(copy));
+  });
+
+  // ---------- car picker ----------
+  let pkStep = "make", pkMake = null;
+  function allMakes(){
+    const names = CARS.map(c => c.make);
+    for (const j of jobs) if (j.make && !names.some(n => n.toLowerCase() === j.make.toLowerCase())) names.push(j.make);
+    return names;
+  }
+  function modelsOf(make){
+    const base = (CARS.find(c => c.make === make) || {models:[]}).models.slice();
+    for (const j of jobs){
+      if (j.make === make && j.model && !base.some(m => m.toLowerCase() === j.model.toLowerCase())) base.push(j.model);
+    }
+    return base;
+  }
+  function recentCars(n){
+    const seen = new Set(), out = [];
+    for (const j of jobs){
+      const c = j.make ? {make:j.make, model:j.model||""} : (j.car ? {make:j.car, model:""} : null);
+      if (!c) continue;
+      const k = carName(c).toLowerCase();
+      if (!seen.has(k)){ seen.add(k); out.push(c); if (out.length >= n) break; }
+    }
+    return out;
+  }
+  function openPicker(){
+    if (formCar && formCar.make && allMakes().includes(formCar.make)) { pkStep = "model"; pkMake = formCar.make; }
+    else { pkStep = "make"; pkMake = null; }
+    $("pkSearch").value = "";
+    renderPicker();
+    $("picker").classList.add("open");
+  }
+  function closePicker(){ $("picker").classList.remove("open"); $("pkSearch").blur(); }
+  function choose(make, model){
+    formCar = {make, model: model || ""};
+    renderCar(); closePicker();
+  }
+  function renderPicker(){
+    const q = $("pkSearch").value.trim().toLowerCase();
+    let h = "";
+    if (pkStep === "make"){
+      $("pkTitle").textContent = "Марка";
+      $("pkBack").style.visibility = "hidden";
+      $("pkSearch").placeholder = "Пошук марки або моделі";
+      const makes = allMakes();
+      if (!q){
+        const rec = recentCars(8);
+        if (rec.length){
+          h += `<div class="pk-sec">Нещодавні</div>` + rec.map(c =>
+            `<button class="lbtn" data-mk="${esc(c.make)}" data-md="${esc(c.model)}">${esc(carName(c))}</button>`).join("");
+        }
+        h += `<div class="pk-sec">Усі марки</div><div class="grid">` +
+          makes.map(m => `<button class="gbtn" data-make="${esc(m)}">${esc(m)}</button>`).join("") + `</div>`;
+      } else {
+        const ms = makes.filter(m => m.toLowerCase().includes(q));
+        if (ms.length) h += `<div class="grid">` + ms.map(m => `<button class="gbtn" data-make="${esc(m)}">${esc(m)}</button>`).join("") + `</div>`;
+        const hits = [];
+        for (const m of makes) for (const md of modelsOf(m)){
+          if ((m + " " + md).toLowerCase().includes(q) && md.toLowerCase().includes(q.split(/\s+/).pop())) hits.push([m, md]);
+          if (hits.length >= 30) break;
+        }
+        if (hits.length) h += `<div class="pk-sec">Моделі</div>` + hits.map(([m, md]) =>
+          `<button class="lbtn" data-mk="${esc(m)}" data-md="${esc(md)}">${esc(md)} <small>${esc(m)}</small></button>`).join("");
+        const raw = $("pkSearch").value.trim();
+        if (!makes.some(m => m.toLowerCase() === q))
+          h += `<button class="wide" data-newmake="${esc(raw)}">＋ Своя марка: «${esc(raw)}»</button>`;
+      }
+    } else {
+      $("pkTitle").textContent = pkMake;
+      $("pkBack").style.visibility = "visible";
+      $("pkSearch").placeholder = "Пошук моделі " + pkMake;
+      const models = modelsOf(pkMake).filter(m => !q || m.toLowerCase().includes(q));
+      const cur = formCar && formCar.make === pkMake ? formCar.model : null;
+      if (models.length) h += `<div class="grid" style="margin-top:6px">` + models.map(m =>
+        `<button class="gbtn${m === cur ? " sel" : ""}" data-model="${esc(m)}">${esc(m)}</button>`).join("") + `</div>`;
+      const raw = $("pkSearch").value.trim();
+      if (raw && !modelsOf(pkMake).some(m => m.toLowerCase() === q))
+        h += `<button class="wide" data-newmodel="${esc(raw)}">＋ Своя модель: «${esc(raw)}»</button>`;
+      else if (!raw) h += `<div class="hint" style="margin-top:12px">Немає потрібної моделі? Впишіть її в пошук угорі.</div>`;
+      h += `<button class="wide" data-model="">Без моделі (тільки ${esc(pkMake)})</button>`;
+    }
+    $("pkBody").innerHTML = h;
+    $("pkBody").scrollTop = 0;
+  }
+  $("pkSearch").addEventListener("input", renderPicker);
+  $("pkSearch").addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const first = $("pkBody").querySelector("button"); if (first) first.click();
+  });
+  $("pkBody").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const d = b.dataset;
+    if (d.mk != null) return choose(d.mk, d.md);
+    if (d.make != null){ pkStep = "model"; pkMake = d.make; $("pkSearch").value = ""; return renderPicker(); }
+    if (d.newmake != null){ pkStep = "model"; pkMake = d.newmake; $("pkSearch").value = ""; return renderPicker(); }
+    if (d.model != null) return choose(pkMake, d.model);
+    if (d.newmodel != null) return choose(pkMake, d.newmodel);
+  });
+  $("pkBack").addEventListener("click", () => { pkStep = "make"; pkMake = null; $("pkSearch").value = ""; renderPicker(); });
+  $("pkClose").addEventListener("click", closePicker);
+
+  // ---------- toast ----------
+  let tTimer = null, undoFn = null;
+  function toast(msg, undo){
+    $("toastMsg").textContent = msg;
+    undoFn = undo || null;
+    $("toastUndo").style.display = undo ? "" : "none";
+    $("toast").classList.add("show");
+    clearTimeout(tTimer);
+    tTimer = setTimeout(() => $("toast").classList.remove("show"), undo ? 5000 : 2200);
+  }
+  $("toastUndo").addEventListener("click", () => {
+    const f = undoFn; undoFn = null; $("toast").classList.remove("show");
+    if (f) f();
+  });
+
+  setInterval(() => { if (!$("sheet").classList.contains("open")) render(); }, 60000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ua.sto.journal'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'ua.sto.journal'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // Один і той самий ключ для всіх збірок: нова версія ставиться поверх старої, дані зберігаються.
+    signingConfigs {
+        sto {
+            storeFile file('release.jks')
+            storePassword 'stojournal'
+            keyAlias 'sto'
+            keyPassword 'stojournal'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sto
+        }
+        debug {
+            signingConfig signingConfigs.sto
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
