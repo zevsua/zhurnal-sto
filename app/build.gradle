@@ -10,8 +10,8 @@ android {
         applicationId 'ua.sto.journal'
         minSdk 26
         targetSdk 34
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
     }
 
     // Один і той самий ключ для всіх збірок: нова версія ставиться поверх старої, дані зберігаються.

@@ -140,6 +140,9 @@
     font-weight:600;text-align:center;word-break:break-word;min-height:50px}
   .gbtn:active{background:var(--panel2)}
   .gbtn.sel{border-color:var(--accent);color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .gbtn.dpf{border-color:rgba(255,176,32,.55);padding:14px 8px}
+  .gbtn.dpf small{display:block;color:var(--accent);font-weight:800;font-size:15px;margin-top:4px}
   .lbtn{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
     border-radius:11px;padding:12px;margin-bottom:6px;font-weight:600}
   .lbtn small{color:var(--muted);font-weight:400}
@@ -345,6 +348,11 @@
     ["Iveco", "Daily"],
   ].map(([make, models]) => ({make, models: models.split(/\s*,\s*/)}));
 
+  // Сажовий фільтр без авто: присилають тільки фільтр на мийку
+  const DPF_MAKE = "Сажовий фільтр";
+  const DPF_WORK = "Мийка сажового фільтра";
+  const DPF = [{model:"легковий", price:300}, {model:"фура", price:800}];
+
   // ---------- state ----------
   let jobs = [];
   let presets = DEFAULT_WORKS.slice();
@@ -363,7 +371,7 @@
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money = n => Math.round(n).toLocaleString("uk-UA").replace(/[\s,  ]/g," ") + " ₴";
   const pad = n => String(n).padStart(2,"0");
-  const carName = c => c ? [c.make, c.model].filter(Boolean).join(" ") : "";
+  const carName = c => !c ? "" : (c.make === DPF_MAKE && c.model) ? `${c.make} (${c.model})` : [c.make, c.model].filter(Boolean).join(" ");
   function when(ts){
     if(!ts) return "";
     const d = new Date(ts), now = new Date();
@@ -920,7 +928,7 @@
   let pkStep = "make", pkMake = null;
   function allMakes(){
     const names = CARS.map(c => c.make);
-    for (const j of jobs) if (j.make && !names.some(n => n.toLowerCase() === j.make.toLowerCase())) names.push(j.make);
+    for (const j of jobs) if (j.make && j.make !== DPF_MAKE && !names.some(n => n.toLowerCase() === j.make.toLowerCase())) names.push(j.make);
     return names;
   }
   function modelsOf(make){
@@ -934,14 +942,14 @@
     const seen = new Set(), out = [];
     for (const j of jobs){
       const c = j.make ? {make:j.make, model:j.model||""} : (j.car ? {make:j.car, model:""} : null);
-      if (!c) continue;
+      if (!c || c.make === DPF_MAKE) continue;
       const k = carName(c).toLowerCase();
       if (!seen.has(k)){ seen.add(k); out.push(c); if (out.length >= n) break; }
     }
     return out;
   }
   function openPicker(){
-    if (formCar && formCar.make && allMakes().includes(formCar.make)) { pkStep = "model"; pkMake = formCar.make; }
+    if (formCar && formCar.make && formCar.make !== DPF_MAKE && allMakes().includes(formCar.make)) { pkStep = "model"; pkMake = formCar.make; }
     else { pkStep = "make"; pkMake = null; }
     $("pkSearch").value = "";
     renderPicker();
@@ -952,6 +960,17 @@
     formCar = {make, model: model || ""};
     renderCar(); closePicker();
   }
+  function chooseDpf(model){
+    const d = DPF.find(x => x.model === model); if (!d) return;
+    formCar = {make: DPF_MAKE, model};
+    if (!formWorks.includes(DPF_WORK)) formWorks = formWorks.concat(DPF_WORK);
+    // ставимо стандартну ціну, якщо поле порожнє або там ціна іншого фільтра
+    const cur = parsePrice($("fPrice").value);
+    if (cur == null || DPF.some(x => x.price === cur)) $("fPrice").value = String(d.price);
+    renderCar(); renderWorkChips(); closePicker();
+  }
+  const dpfHtml = () => `<div class="pk-sec">Тільки фільтр (без авто)</div><div class="grid2">` +
+    DPF.map(d => `<button class="gbtn dpf" data-dpf="${esc(d.model)}">Сажовий фільтр<br>${esc(d.model)}<small>${money(d.price)}</small></button>`).join("") + `</div>`;
   function renderPicker(){
     const q = $("pkSearch").value.trim().toLowerCase();
     let h = "";
@@ -961,6 +980,7 @@
       $("pkSearch").placeholder = "Пошук марки або моделі";
       const makes = allMakes();
       if (!q){
+        h += dpfHtml();
         const rec = recentCars(8);
         if (rec.length){
           h += `<div class="pk-sec">Нещодавні</div>` + rec.map(c =>
@@ -969,6 +989,7 @@
         h += `<div class="pk-sec">Усі марки</div><div class="grid">` +
           makes.map(m => `<button class="gbtn" data-make="${esc(m)}">${esc(m)}</button>`).join("") + `</div>`;
       } else {
+        if (["сажов", "фільтр", "фильтр", "dpf", "фур", "легков"].some(w => q.includes(w) || w.startsWith(q))) h += dpfHtml();
         const ms = makes.filter(m => m.toLowerCase().includes(q));
         if (ms.length) h += `<div class="grid">` + ms.map(m => `<button class="gbtn" data-make="${esc(m)}">${esc(m)}</button>`).join("") + `</div>`;
         const hits = [];
@@ -1008,6 +1029,7 @@
   $("pkBody").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     const d = b.dataset;
+    if (d.dpf != null) return chooseDpf(d.dpf);
     if (d.mk != null) return choose(d.mk, d.md);
     if (d.make != null){ pkStep = "model"; pkMake = d.make; $("pkSearch").value = ""; return renderPicker(); }
     if (d.newmake != null){ pkStep = "model"; pkMake = d.newmake; $("pkSearch").value = ""; return renderPicker(); }
